@@ -35,6 +35,9 @@ FILE_NAME = "3DBenchy_up.stl"
 #FILE_NAME = "Bird.stl"
 
 def main():
+    try: os.mkdir(os.path.join(os.path.dirname(__file__),'Output')) #Creates an output folder if there isn't one yet
+    except: pass
+    return
     modelImport = False
     scale = [1,1,1]
     if not MODEL and not SUPPORT:
