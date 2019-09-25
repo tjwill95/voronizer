@@ -3,7 +3,6 @@ import Frep as f
 from SDF3D import SDF3D, jumpFlood
 from numba import cuda
 import numpy as np
-from meshExport import generateMesh
 
 TPB = 6
 
@@ -11,15 +10,15 @@ def voronize(origObject, seedPoints, cellThickness, shellThickness, scale,
              name = "", sliceLocation = 0, sliceAxis = "X", order = 2):
     #origObject = voxel model of original object, negative = inside
     #seedPoints = same-size matrix with 0s at the location of each seed point, 1s elsewhere
-    # wallThickness = desired minimum thickness of cell walls (mm).
+    #wallThickness  = desired minimum thickness of cell walls (mm).
     #shellThickness = desired minimum thickness of shell (mm), 0 if no shell
-    #name = If given a value, the name of the model
+    #name = If given a value, the name of the model, activates progress plots.
     resX, resY, resZ = origObject.shape
-    if sliceLocation is 0:
+    if sliceLocation == 0:
         sliceLocation = resX//2
     seedPoints = jumpFlood(seedPoints,order)
-    #if name !="":
-        #contourPlot(seedPoints[:,:,:,3],sliceLocation,titlestring="SDF of the Points for "+name,axis = sliceAxis)
+    if name !="":
+        contourPlot(seedPoints[:,:,:,3],sliceLocation,titlestring="SDF of the Points for "+name,axis = sliceAxis)
     voronoi = SDF3D(wallFinder(seedPoints))
     if name !="":
         slicePlot(voronoi,sliceLocation,titlestring="Voronoi Structure for "+name,axis = sliceAxis)
@@ -28,12 +27,12 @@ def voronize(origObject, seedPoints, cellThickness, shellThickness, scale,
     if name !="":
         slicePlot(voronoi, sliceLocation, titlestring=(name+' Trimmed and Thinned'),axis = sliceAxis)
     if shellThickness>0:
-        #generateMesh(voronoi,scale,filename=name + " Without Shell") #For Paper
         u_shell = f.shell(origObject,shellThickness)
         voronoi = f.union(u_shell,voronoi)
-        #generateMesh(voronoi,scale,filename=name + " With Shell") #For Paper
         if name !="":
             slicePlot(voronoi, sliceLocation, titlestring=name+' With Shell',axis = sliceAxis)
+    if name =="":
+        name = "Model"
     print("Voronize for " + name + " Complete!")
     return voronoi
 

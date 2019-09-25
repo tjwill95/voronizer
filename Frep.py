@@ -38,6 +38,8 @@ def intersection(u,v):
 def subtract(u,v):
     #u = cutting tool model (Model that's removed)
     #v = base model
+    #Outputs the subtraction of the models (fills in the resulting matrix such
+    #that if a cell is negative in u, it's positive in the output)
     d_u = cuda.to_device(u)
     d_v = cuda.to_device(-1*v)
     dims = u.shape
@@ -55,8 +57,8 @@ def projectionKernel(d_u,X):
             d_u[X,j,k]=-1    
 
 def projection(u):
-    #u = voxelized model, negative = internalago
-    #Assumes X is the vertical axis, projects entire part to lowest Z value.
+    #u = voxelized model, negative = internal
+    #Assumes X is the vertical axis, projects entire part to lowest X value.
     TPBY, TPBZ = TPB, TPB
     m, n, p = u.shape
     minX = -1
@@ -85,7 +87,7 @@ def translateKernel(d_u,d_v,x,y,z):
     
 def translate(u,x,y,z):
     #u = voxel model to translate
-    #x,y,z = translation vector, integers
+    #x,y,z = translation vector, integers in voxels
     #moves the model according to the translation vector.
     d_u = cuda.to_device(u)
     d_v = cuda.device_array(shape = u.shape, dtype = np.float32)
@@ -98,12 +100,12 @@ def translate(u,x,y,z):
 def thicken(u,weight):
     #u = voxel model to thicken, assumes SDF
     #origShape = outer bounds of model
-    #weight = how much we're thickening the object
+    #weight = how much we're thickening the object (In voxels)
     return u - np.ones(u.shape)*weight
     
 def shell(uSDF,sT):
     #u = voxel model to shell, assumes SDF
-    #sT = thickness of the shell
+    #sT = thickness of the shell (In voxels)
     return intersection(uSDF,-uSDF-np.ones(uSDF.shape)*sT)
 
 @cuda.jit
@@ -117,10 +119,10 @@ def heartKernel(d_u, d_x, d_y, d_z,cx,cy,cz):
         d_u[i,j,k] = (x**2+9*(y**2)/4+z**2-1)**3-(x**2)*(z**3)-9*(y**2)*(z**3)/80
         
 def heart(x,y,z,cx,cy,cz):
-    #x,y,z = coordinate domain that we want the shape to live in.
+    #x,y,z = coordinate domain that we want the shape to live in, vectors
+    #cx,cy,cz = coordinates of the center of the heart shape.
     #Outputs a 3D matrix with negative values showing the inside of our shape, 
     #positive values showing the outside, and 0s to show the surfaces.
-    #cx,cy,cz specify the center of the heart shape.
     TPBX, TPBY, TPBZ = TPB, TPB, TPB
     m = x.shape[0]
     n = y.shape[0]
@@ -135,111 +137,112 @@ def heart(x,y,z,cx,cy,cz):
     return d_u.copy_to_host()
 
 @cuda.jit
-def rectKernel(d_u, d_x0, d_y0, d_z0, xl, yl, zl, origin):
+def rectKernel(d_u, d_x, d_y, d_z, xl, yl, zl, origin):
     i,j, k = cuda.grid(3)
     m,n,p = d_u.shape
     if i < m and j < n and k < p:
-        sx = abs(d_x0[i]-origin[0]) - xl/2
-        sy = abs(d_y0[j]-origin[1]) - yl/2
-        sz = abs(d_z0[k]-origin[2]) - zl/2
+        sx = abs(d_x[i]-origin[0]) - xl/2
+        sy = abs(d_y[j]-origin[1]) - yl/2
+        sz = abs(d_z[k]-origin[2]) - zl/2
         d_u[i,j,k]=max(sx,sy,sz)
         
-def rect(x0,y0,z0,xl,yl,zl,origin = [0,0,0]):
-    #x0,y0,z0 = x,y,z coordinate domain that we want the shape to live in.
+def rect(x,y,z,xl,yl,zl,origin = [0,0,0]):
+    #x,y,z = coordinate domain that we want the shape to live in, vectors
+    #xl,yl,zl = sidelengths of the rectangular prism.
+    #origin = coordinates for the center of the prism
     #Outputs a 3D matrix with negative values showing the inside of our shape, 
     #positive values showing the outside, and 0s to show the surfaces.
-    #xl,yl,zl are the sidelengths of the rectangular prism.
     TPBX, TPBY, TPBZ = TPB, TPB, TPB
-    m = x0.shape[0]
-    n = y0.shape[0]
-    p = z0.shape[0]
-    d_x0 = cuda.to_device(x0)
-    d_y0 = cuda.to_device(y0)
-    d_z0 = cuda.to_device(z0)
+    m = x.shape[0]
+    n = y.shape[0]
+    p = z.shape[0]
+    d_x = cuda.to_device(x)
+    d_y = cuda.to_device(y)
+    d_z = cuda.to_device(z)
     d_origin = cuda.to_device(origin)
     d_u = cuda.device_array(shape = [m, n, p], dtype = np.float32)
     gridDims = (m+TPBX-1)//TPBX, (n+TPBY-1)//TPBY, (n+TPBZ-1)//TPBZ
     blockDims = TPBX, TPBY, TPBZ
-    rectKernel[gridDims, blockDims](d_u, d_x0, d_y0, d_z0, xl, yl, zl, d_origin)
+    rectKernel[gridDims, blockDims](d_u, d_x, d_y, d_z, xl, yl, zl, d_origin)
     return d_u.copy_to_host()
 
 @cuda.jit
-def sphereKernel(d_u, d_x0, d_y0, d_z0, rad):
+def sphereKernel(d_u, d_x, d_y, d_z, rad):
     i,j, k = cuda.grid(3)
     m,n,p = d_u.shape
     if i < m and j < n and k < p:
-        d_u[i,j, k] = math.sqrt(d_x0[i]**2+d_y0[j]**2+d_z0[k]**2)-rad
+        d_u[i,j, k] = math.sqrt(d_x[i]**2+d_y[j]**2+d_z[k]**2)-rad
         
-def sphere(x0,y0,z0,rad):
-    #x0,y0,z0 = x,y,z coordinate domain that we want the shape to live in.
+def sphere(x,y,z,rad):
+    #x,y,z = x,y,z coordinate domain that we want the shape to live in.
+    #rad = radius of the sphere.
     #Outputs a 3D matrix with negative values showing the inside of our shape, 
     #positive values showing the outside, and 0s to show the surfaces.
-    #rad gives the radius of the sphere.
     TPBX, TPBY, TPBZ = TPB, TPB, TPB
-    m = x0.shape[0]
-    n = y0.shape[0]
-    p = z0.shape[0]
-    d_x0 = cuda.to_device(x0)
-    d_y0 = cuda.to_device(y0)
-    d_z0 = cuda.to_device(z0)
+    m = x.shape[0]
+    n = y.shape[0]
+    p = z.shape[0]
+    d_x = cuda.to_device(x)
+    d_y = cuda.to_device(y)
+    d_z = cuda.to_device(z)
     d_u = cuda.device_array(shape = [m, n, p], dtype = np.float32)
     gridDims = (m+TPBX-1)//TPBX, (n+TPBY-1)//TPBY, (n+TPBZ-1)//TPBZ
     blockDims = TPBX, TPBY, TPBZ
-    sphereKernel[gridDims, blockDims](d_u, d_x0, d_y0, d_z0, rad)
+    sphereKernel[gridDims, blockDims](d_u, d_x, d_y, d_z, rad)
     return d_u.copy_to_host()
 
 @cuda.jit
-def cylinderYKernel(d_u, d_x0, d_y0, d_z0, start, stop, rad):
+def cylinderYKernel(d_u, d_x, d_y, d_z, start, stop, rad):
     i,j,k = cuda.grid(3)
     m,n,p = d_u.shape
     if i < m and j < n and k < p:
-        height = (d_y0[j]-start)*(d_y0[j]-stop)
-        width = math.sqrt(d_x0[i]**2+d_z0[k]**2)-rad
+        height = (d_y[j]-start)*(d_y[j]-stop)
+        width = math.sqrt(d_x[i]**2+d_z[k]**2)-rad
         d_u[i,j,k] = max(height,width)
 
-def cylinderY(x0,y0,z0,start,stop,rad):
-    #x0,y0,z0 are the x,y,z coordinate domain that we want the shape to live in.
+def cylinderY(x,y,z,start,stop,rad):
+    #x,y,z = x,y,z coordinate domain that we want the shape to live in.
+    #start, stop = highest and lowest Y coordinates (Order irrelevant).
+    #rad = radius of the cylinder.
     #Outputs a 3D matrix with negative values showing the inside of our shape, 
     #positive values showing the outside, and 0s to show the surfaces.
-    #start and stop give the start and end Y coordinates.
-    #rad gives the radius of the cylinder.
     TPBX, TPBY, TPBZ = TPB, TPB, TPB
-    m = x0.shape[0]
-    n = y0.shape[0]
-    p = z0.shape[0]
-    d_x0 = cuda.to_device(x0)
-    d_y0 = cuda.to_device(y0)
-    d_z0 = cuda.to_device(z0)
+    m = x.shape[0]
+    n = y.shape[0]
+    p = z.shape[0]
+    d_x = cuda.to_device(x)
+    d_y = cuda.to_device(y)
+    d_z = cuda.to_device(z)
     d_u = cuda.device_array(shape = [m, n, p], dtype = np.float32)
     gridDims = (m+TPBX-1)//TPBX, (n+TPBY-1)//TPBY, (n+TPBZ-1)//TPBZ
     blockDims = TPBX, TPBY, TPBZ
-    cylinderYKernel[gridDims, blockDims](d_u, d_x0, d_y0, d_z0, start, stop, rad)
+    cylinderYKernel[gridDims, blockDims](d_u, d_x, d_y, d_z, start, stop, rad)
     return d_u.copy_to_host()
 
 @cuda.jit
-def cylinderXKernel(d_u, d_x0, d_y0, d_z0, start, stop, rad):
+def cylinderXKernel(d_u, d_x, d_y, d_z, start, stop, rad):
     i,j,k = cuda.grid(3)
     m,n,p = d_u.shape
     if i < m and j < n and k < p:
-        height = (d_x0[i]-start)*(d_x0[i]-stop)
-        width = math.sqrt(d_y0[j]**2+d_z0[k]**2)-rad
+        height = (d_x[i]-start)*(d_x[i]-stop)
+        width = math.sqrt(d_y[j]**2+d_z[k]**2)-rad
         d_u[i,j,k] = max(height,width)
 
-def cylinderX(x0,y0,z0,start,stop,rad):
-    #x0,y0,z0 are the x,y,z coordinate domain that we want the shape to live in.
+def cylinderX(x,y,z,start,stop,rad):
+    #x,y,z = x,y,z coordinate domain that we want the shape to live in.
+    #start, stop = highest and lowest X coordinates (Order irrelevant).
+    #rad = radius of the cylinder.
     #Outputs a 3D matrix with negative values showing the inside of our shape, 
     #positive values showing the outside, and 0s to show the surfaces.
-    #start and stop give the start and end x coordinates.
-    #rad gives the radius of the cylinder.
     TPBX, TPBY, TPBZ = TPB, TPB, TPB
-    m = x0.shape[0]
-    n = y0.shape[0]
-    p = z0.shape[0]
-    d_x0 = cuda.to_device(x0)
-    d_y0 = cuda.to_device(y0)
-    d_z0 = cuda.to_device(z0)
+    m = x.shape[0]
+    n = y.shape[0]
+    p = z.shape[0]
+    d_x = cuda.to_device(x)
+    d_y = cuda.to_device(y)
+    d_z = cuda.to_device(z)
     d_u = cuda.device_array(shape = [m, n, p], dtype = np.float32)
     gridDims = (m+TPBX-1)//TPBX, (n+TPBY-1)//TPBY, (n+TPBZ-1)//TPBZ
     blockDims = TPBX, TPBY, TPBZ
-    cylinderXKernel[gridDims, blockDims](d_u, d_x0, d_y0, d_z0, start, stop, rad)
+    cylinderXKernel[gridDims, blockDims](d_u, d_x, d_y, d_z, start, stop, rad)
     return d_u.copy_to_host()

@@ -36,6 +36,11 @@ def JFSetupKernel(d_u,d_p):
         return
 
 def jumpFlood(u,order=2.0):
+    #u = a voxel model where the negative values indicate that the voxel is 
+    #inside the object, positive is outside, and 0 is on the surface.
+    #order = order of the norm calculation, usually 2.0
+    #Output formatted as follows: 
+    #u[i,j,k,d]=(i coord of Nearest Seed (NS), j coord of NS, k coord of NS, distance to NS)
     dims = u.shape
     gridSize = [(dims[0]+TPB-1)//TPB, (dims[1]+TPB-1)//TPB,(dims[2]+TPB-1)//TPB]
     blockSize = [TPB, TPB, TPB]
@@ -67,75 +72,19 @@ def toSDF(JFpos,JFneg,d_u):
     else:
         d_u[i,j,k]=-dn
 
-def SDF3D(u):
+def SDF3D(u,order=2.0):
     #u = a voxel model where the negative values indicate that the voxel is 
     #inside the object, positive is outside, and 0 is on the surface.
     #Outputs a new voxel model where the same sign rules apply, but the value 
     #of the cell indicates how far away that cell is from the nearest surface.
-    #Formatted u[i,j,k]=(Nearest Seed i, NSj, NSk, Distance to Seed)
     dims = u.shape
     gridSize = [(dims[0]+TPB-1)//TPB, (dims[1]+TPB-1)//TPB,(dims[2]+TPB-1)//TPB]
     blockSize = [TPB, TPB, TPB]
-    d_p = cuda.to_device(jumpFlood(u))
-    d_n = cuda.to_device(jumpFlood(-u))
+    d_p = cuda.to_device(jumpFlood(u,order))
+    d_n = cuda.to_device(jumpFlood(-u,order))
     d_u = cuda.to_device(u)
     toSDF[gridSize, blockSize](d_p,d_n,d_u)
     return d_u.copy_to_host()
-
-@cuda.jit(device = True)
-def CFD(n2,n1,p1,p2,h):
-    #return (n2/12-2*n1/3+2*p1/3-p2/12)/h
-    return (p1-n1)/(2*h)
-
-@cuda.jit
-def grad3DKernel(d_u,d_v,maxVal):
-    i,j,k = cuda.grid(3)
-    dims = d_u.shape
-    h1 = 1 #step size
-    h2 = 2**(1/2)
-    h3 = 3**(1/2)
-    if i>=dims[0] or j>=dims[1] or k>=dims[2]:
-        return
-    dx = CFD(d_u[i-2,j,k],d_u[i-1,j,k],d_u[i+1,j,k],d_u[i+2,j,k],h1)**2
-    dy = CFD(d_u[i,j-2,k],d_u[i,j-1,k],d_u[i,j+1,k],d_u[i,j+2,k],h1)**2
-    dz = CFD(d_u[i,j,k-2],d_u[i,j,k-1],d_u[i,j,k+1],d_u[i,j,k+2],h1)**2
-    dPxPy = CFD(d_u[i-2,j-2,k],d_u[i-1,j-1,k],d_u[i+1,j+1,k],d_u[i+2,j+2,k],h2)**2
-    dNxPy = CFD(d_u[i-2,j+2,k],d_u[i-1,j+1,k],d_u[i+1,j-1,k],d_u[i+2,j-2,k],h2)**2
-    dPyPz = CFD(d_u[i,j-2,k-2],d_u[i,j-1,k-1],d_u[i,j+1,k+1],d_u[i,j+2,k+2],h2)**2
-    dNyPz = CFD(d_u[i,j-2,k+2],d_u[i,j-1,k+1],d_u[i,j+1,k-1],d_u[i,j+2,k-2],h2)**2
-    dPxPz = CFD(d_u[i-2,j,k-2],d_u[i-1,j,k-1],d_u[i+1,j,k+1],d_u[i+2,j,k+2],h2)**2
-    dNxPz = CFD(d_u[i-2,j,k+2],d_u[i-1,j,k+1],d_u[i+1,j,k-1],d_u[i+2,j,k-2],h2)**2
-    dPPP = CFD(d_u[i-2,j-2,k-2],d_u[i-1,j-1,k-1],d_u[i+1,j+1,k+1],d_u[i+2,j+2,k+2],h3)**2
-    dNPP = CFD(d_u[i+2,j-2,k-2],d_u[i+1,j-1,k-1],d_u[i-1,j+1,k+1],d_u[i-2,j+2,k+2],h3)**2
-    dPNP = CFD(d_u[i-2,j+2,k-2],d_u[i-1,j+1,k-1],d_u[i+1,j-1,k+1],d_u[i+2,j-2,k+2],h3)**2
-    dPPN = CFD(d_u[i-2,j-2,k+2],d_u[i-1,j-1,k+1],d_u[i+1,j+1,k-1],d_u[i+2,j+2,k-2],h3)**2
-    d2,d3,d4,d5,d6,d7,d8 = 1,1,1,1,1,1,1
-    d1 = min(maxVal,(dx+dy+dz))
-    d2 = min(maxVal,(dPxPy+dNxPy+dz))
-    d3 = min(maxVal,(dx+dPyPz+dNyPz))
-    d4 = min(maxVal,(dPxPz+dy+dNxPz))
-    d5 = min(maxVal,(dPPP+dPPN+dNxPy))
-    d6 = min(maxVal,(dPPP+dNPP+dNyPz))
-    d7 = min(maxVal,(dNPP+dPNP+dPxPy))
-    d8 = min(maxVal,(dPNP+dPPN+dPyPz))
-    grad = min(d1,d2,d3,d4,d5,d6,d7,d8)**(1/2) #Lowest gradient
-    if maxVal>0:
-        d_v[i,j,k]=min(grad,maxVal)
-    else:
-        d_v[i,j,k]=grad
-    
-def grad3D(u,maxVal=0):
-    #u = SDF of our desired voxel model
-    #maxVal = Upper cap on the gradient.  If any gradient values fall above 
-    #this value, it is set to the maxVal.  This is for visualization purposes.
-    #Outputs the magnitude of the gradient vector at each cell in the voxel model.
-    d_u = cuda.to_device(u)
-    d_v = cuda.to_device(np.ones(np.shape(u)))
-    dims = u.shape
-    gridSize = [(dims[0]+TPB-1)//TPB, (dims[1]+TPB-1)//TPB,(dims[2]+TPB-1)//TPB]
-    blockSize = [TPB, TPB, TPB]
-    grad3DKernel[gridSize, blockSize](d_u,d_v,maxVal)
-    return d_v.copy_to_host()
 
 @cuda.jit
 def simplifyKernel(d_u,d_v):
