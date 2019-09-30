@@ -12,25 +12,24 @@ from voxelize import voxelize
 FILE_NAME = "" #Don't change, overwritten later as needed
 MAT_DENSITY = 1.25 #g/cm^3 (material density), for information only
 MODEL = True #Generates model with infill
-SUPPORT = False #Generates support structure
+SUPPORT = True #Generates support structure
 SEPARATE_SUPPORTS = True #Spits out two files, one for the support and one for the object
 PERFORATE = True #Perforates the support structure to allow fluids into the support cells
 IMG_STACK = False #Outputs an image stack of the model
-AESTHETIC = True #Removes all internal detail, works best wtih INVERSE
-INVERSE = True #Also includes the inverse of the model
+AESTHETIC = False #Removes all internal detail, works best wtih INVERSE
+INVERSE = False #Also includes the inverse of the model
 RESOLUTION = 150
 BUFFER = 4
 MODEL_THRESH = 0.1
-MODEL_SHELL = 0 #3
+MODEL_SHELL = 3
 MODEL_CELL = .7
 SUPPORT_THRESH = 0.2
 SUPPORT_CELL = .7
-#FILE_NAME = "E.stl"
+FILE_NAME = "E.stl"
 #FILE_NAME = "3DBenchy_up.stl"
 #FILE_NAME = "3DBenchy.stl"
 #FILE_NAME = "bust_low.stl"
 #FILE_NAME = "wavySurface.stl"
-
 
 def main():
     start = time.time()
