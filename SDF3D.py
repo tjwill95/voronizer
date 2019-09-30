@@ -57,7 +57,7 @@ def jumpFlood(u,order=2.0):
         stepSize = 2-count
         JFKernel[gridSize, blockSize](d_r,d_w,stepSize,order)
         d_r,d_w = d_w,d_r
-    return d_r
+    return d_r.copy_to_host()
 
 @cuda.jit
 def toSDF(JFpos,JFneg,d_u):
