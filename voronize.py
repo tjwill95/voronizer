@@ -4,7 +4,7 @@ from SDF3D import SDF3D, jumpFlood
 from numba import cuda
 import numpy as np
 
-TPB = 6
+TPB = 8
 
 def voronize(origObject, seedPoints, cellThickness, shellThickness, scale,
              name = "", sliceLocation = 0, sliceAxis = "X", order = 2):

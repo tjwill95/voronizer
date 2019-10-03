@@ -192,34 +192,6 @@ def sphere(x,y,z,rad):
     return d_u.copy_to_host()
 
 @cuda.jit
-def cylinderYKernel(d_u, d_x, d_y, d_z, start, stop, rad):
-    i,j,k = cuda.grid(3)
-    m,n,p = d_u.shape
-    if i < m and j < n and k < p:
-        height = (d_y[j]-start)*(d_y[j]-stop)
-        width = math.sqrt(d_x[i]**2+d_z[k]**2)-rad
-        d_u[i,j,k] = max(height,width)
-
-def cylinderY(x,y,z,start,stop,rad):
-    #x,y,z = x,y,z coordinate domain that we want the shape to live in.
-    #start, stop = highest and lowest Y coordinates (Order irrelevant).
-    #rad = radius of the cylinder.
-    #Outputs a 3D matrix with negative values showing the inside of our shape, 
-    #positive values showing the outside, and 0s to show the surfaces.
-    TPBX, TPBY, TPBZ = TPB, TPB, TPB
-    m = x.shape[0]
-    n = y.shape[0]
-    p = z.shape[0]
-    d_x = cuda.to_device(x)
-    d_y = cuda.to_device(y)
-    d_z = cuda.to_device(z)
-    d_u = cuda.device_array(shape = [m, n, p], dtype = np.float32)
-    gridDims = (m+TPBX-1)//TPBX, (n+TPBY-1)//TPBY, (n+TPBZ-1)//TPBZ
-    blockDims = TPBX, TPBY, TPBZ
-    cylinderYKernel[gridDims, blockDims](d_u, d_x, d_y, d_z, start, stop, rad)
-    return d_u.copy_to_host()
-
-@cuda.jit
 def cylinderXKernel(d_u, d_x, d_y, d_z, start, stop, rad):
     i,j,k = cuda.grid(3)
     m,n,p = d_u.shape
@@ -245,4 +217,32 @@ def cylinderX(x,y,z,start,stop,rad):
     gridDims = (m+TPBX-1)//TPBX, (n+TPBY-1)//TPBY, (n+TPBZ-1)//TPBZ
     blockDims = TPBX, TPBY, TPBZ
     cylinderXKernel[gridDims, blockDims](d_u, d_x, d_y, d_z, start, stop, rad)
+    return d_u.copy_to_host()
+
+@cuda.jit
+def cylinderYKernel(d_u, d_x, d_y, d_z, start, stop, rad):
+    i,j,k = cuda.grid(3)
+    m,n,p = d_u.shape
+    if i < m and j < n and k < p:
+        height = (d_y[j]-start)*(d_y[j]-stop)
+        width = math.sqrt(d_x[i]**2+d_z[k]**2)-rad
+        d_u[i,j,k] = max(height,width)
+
+def cylinderY(x,y,z,start,stop,rad):
+    #x,y,z = x,y,z coordinate domain that we want the shape to live in.
+    #start, stop = highest and lowest Y coordinates (Order irrelevant).
+    #rad = radius of the cylinder.
+    #Outputs a 3D matrix with negative values showing the inside of our shape, 
+    #positive values showing the outside, and 0s to show the surfaces.
+    TPBX, TPBY, TPBZ = TPB, TPB, TPB
+    m = x.shape[0]
+    n = y.shape[0]
+    p = z.shape[0]
+    d_x = cuda.to_device(x)
+    d_y = cuda.to_device(y)
+    d_z = cuda.to_device(z)
+    d_u = cuda.device_array(shape = [m, n, p], dtype = np.float32)
+    gridDims = (m+TPBX-1)//TPBX, (n+TPBY-1)//TPBY, (n+TPBZ-1)//TPBZ
+    blockDims = TPBX, TPBY, TPBZ
+    cylinderYKernel[gridDims, blockDims](d_u, d_x, d_y, d_z, start, stop, rad)
     return d_u.copy_to_host()
