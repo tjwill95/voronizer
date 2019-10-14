@@ -15,7 +15,12 @@ def voronize(origObject, seedPoints, cellThickness, shellThickness, scale,
     #name = If given a value, the name of the model, activates progress plots.
     resX, resY, resZ = origObject.shape
     if sliceLocation == 0:
-        sliceLocation = resX//2
+        if sliceAxis == "X" or sliceAxis == "x":
+            sliceLocation = resX//2
+        elif sliceAxis == "Y" or sliceAxis =="y":
+            sliceLocation = resY//2
+        else:
+            sliceLocation = resZ//2
     seedPoints = jumpFlood(seedPoints,order)
     if name !="":
         contourPlot(seedPoints[:,:,:,3],sliceLocation,titlestring="SDF of the Points for "+name,axis = sliceAxis)

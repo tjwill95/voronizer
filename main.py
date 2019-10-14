@@ -11,15 +11,13 @@ from analysis import findVol
 from visualizeSlice import slicePlot, contourPlot, generateImageStack
 from voxelize import voxelize
 
-BUFFER = 4
+BUFFER = 2
 
 def main():
     start = time.time()
-    try:
-        FILE_NAME = u.FILE_NAME
-    except:
-        FILE_NAME = ""
-    try: os.mkdir(os.path.join(os.path.dirname(__file__),'Output')) #Creates an output folder if there isn't one yet
+    try:    FILE_NAME = u.FILE_NAME
+    except: FILE_NAME = ""
+    try:    os.mkdir(os.path.join(os.path.dirname(__file__),'Output')) #Creates an output folder if there isn't one yet
     except: pass
     modelImport = False
     scale = [1,1,1]
@@ -30,36 +28,38 @@ def main():
         shortName = FILE_NAME[:-4]
         modelImport = True
         filepath = os.path.join(os.path.dirname(__file__), 'Input',FILE_NAME)
-        res = u.RESOLUTION-BUFFER
-        origShape, objectBox = voxelize(filepath, res)
-        origShape = SDF3D(origShape)
-        print(origShape.shape)
+        res = u.RESOLUTION-BUFFER*2
+        origShape, objectBox = voxelize(filepath, res, BUFFER)
         gridResX, gridResY, gridResZ = origShape.shape
-        scale[0] = objectBox[0]/(gridResX-BUFFER)
-        scale[1] = max(objectBox[1:])/(gridResY-BUFFER)
+        scale[0] = objectBox[0]/(gridResX-BUFFER*2)
+        scale[1] = max(objectBox[1:])/(gridResY-BUFFER*2)
         scale[2] = scale[1]
     elif u.PRIMITIVE == True:
-        shortName = u.PRIMATIVE_TYPE
-        if u.PRIMATIVE_TYPE == "Heart":
+        shortName = u.PRIMITIVE_TYPE
+        if u.PRIMITIVE_TYPE == "Heart":
             x0 = np.linspace(0.5,3.5,u.RESOLUTION)
             y0 = np.linspace(0.5,3.5,u.RESOLUTION)
             z0 = np.linspace(0.5,3.5,u.RESOLUTION)
-            origShape = SDF3D(f.heart(x0,y0,z0,2,2,2))
+            origShape = f.heart(x0,y0,z0,2,2,2)
         else:
             x0 = np.linspace(-50,50,u.RESOLUTION)
             y0, z0 = x0, x0
-            if u.PRIMATIVE_TYPE == "Cube":
-                origShape = SDF3D(f.rect(x0,y0,z0,80,80,80))
-            elif u.PRIMATIVE_TYPE == "Silo":
-                origShape = SDF3D(f.union(f.sphere(x0,y0,z0,40),f.cylinderY(x0,y0,z0,-40,0,40))) 
-            elif u.PRIMATIVE_TYPE == "Cylinder":
-                origShape = SDF3D(f.cylinderX(x0,y0,z0,-40,40,40))
+            if u.PRIMITIVE_TYPE == "Cube":
+                origShape = f.rect(x0,y0,z0,80,80,80)
+            elif u.PRIMITIVE_TYPE == "Silo":
+                origShape = f.union(f.sphere(x0,y0,z0,40),f.cylinderY(x0,y0,z0,-40,0,40))
+            elif u.PRIMITIVE_TYPE == "Cylinder":
+                origShape = f.cylinderX(x0,y0,z0,-40,40,40)
             else: #Sphere
-                origShape = SDF3D(f.sphere(x0,y0,z0,40))
+                origShape = f.sphere(x0,y0,z0,40)
     else:
         print("Provide either a file name or a desired primative.")
         return
-
+    
+    print("Initial Bounding Box Dimensions: "+str(origShape.shape))
+    origShape = SDF3D(f.condense(origShape,BUFFER))
+    print("Condensed Bounding Box Dimensions: "+str(origShape.shape))
+    
     if u.SUPPORT:
         projected = f.projection(origShape)
         support = f.subtract(f.thicken(origShape,1),projected)
@@ -77,7 +77,7 @@ def main():
         findVol(supportVoronoi,scale,u.MAT_DENSITY,"Support")
     
     if u.MODEL:
-        objectPts = genRandPoints(SDF3D(origShape),u.MODEL_THRESH)
+        objectPts = genRandPoints(origShape,u.MODEL_THRESH)
         print("Points Generated!")
         objectVoronoi = voronize(origShape, objectPts, u.MODEL_CELL, u.MODEL_SHELL, scale, name = "Object")
         findVol(objectVoronoi,scale,u.MAT_DENSITY,"Object") #in mm^3
@@ -102,7 +102,6 @@ def main():
     
     print("That took "+str(round(time.time()-start,2))+" seconds.")
     UIP = input("Would you like the .ply for this iteration? [Y/N]")
-    #UIP = "N" #For Testing Purposes
     if UIP == "Y" or UIP == "y":
         if modelImport:
             fn = shortName

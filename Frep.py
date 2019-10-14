@@ -109,8 +109,49 @@ def shell(uSDF,sT):
     return intersection(uSDF,-uSDF-np.ones(uSDF.shape)*sT)
 
 @cuda.jit
+def condenseKernel(d_u,d_uCondensed,buffer,minX,minY,minZ):
+    i,j,k = cuda.grid(3)
+    m,n,p = d_uCondensed.shape
+    if i < m and j < n and k < p:
+        d_uCondensed[i,j,k] = d_u[i+minX-buffer,j+minY-buffer,k+minZ-buffer]
+    
+def condense(u,buffer):
+    m, n, p = u.shape
+    TPBX, TPBY, TPBZ = TPB, TPB, TPB
+    minX, maxX, minY, maxY, minZ, maxZ = -1,-1,-1,-1,-1,-1
+    i, j, k = 0, 0, 0
+    while minX<0:
+        if np.amin(u[i,:,:])<0:     minX = i
+        else:                       i += 1
+    while minY<0:
+        if np.amin(u[:,j,:])<0:     minY = j
+        else:                       j += 1
+    while minZ<0:
+        if np.amin(u[:,:,k])<0:     minZ = k
+        else:                       k += 1
+    i, j, k = 1, 1, 1
+    while maxX<0:
+        if np.amin(u[m-i,:,:])<0:   maxX = m-i
+        else:                       i += 1
+    while maxY<0:
+        if np.amin(u[:,n-j,:])<0:   maxY = n-j
+        else:                       j += 1
+    while maxZ<0:
+        if np.amin(u[:,:,p-k])<0:   maxZ = p-k
+        else:                       k += 1
+    xSize = 2 * buffer + maxX - minX
+    ySize = 2 * buffer + maxY - minY
+    zSize = 2 * buffer + maxZ - minZ
+    d_u = cuda.to_device(u)
+    d_uCondensed = cuda.device_array(shape = [xSize, ySize, zSize], dtype = np.float32)
+    gridDims = (xSize+TPBX-1)//TPBX, (ySize+TPBY-1)//TPBY, (zSize+TPBZ-1)//TPBZ
+    blockDims = TPBX, TPBY, TPBZ
+    condenseKernel[gridDims, blockDims](d_u, d_uCondensed,buffer,minX,minY,minZ)
+    return d_uCondensed.copy_to_host()
+
+@cuda.jit
 def heartKernel(d_u, d_x, d_y, d_z,cx,cy,cz):
-    i,j, k = cuda.grid(3)
+    i,j,k = cuda.grid(3)
     m,n,p = d_u.shape
     if i < m and j < n and k < p:
         x = d_x[i]-cx
@@ -138,7 +179,7 @@ def heart(x,y,z,cx,cy,cz):
 
 @cuda.jit
 def rectKernel(d_u, d_x, d_y, d_z, xl, yl, zl, origin):
-    i,j, k = cuda.grid(3)
+    i,j,k = cuda.grid(3)
     m,n,p = d_u.shape
     if i < m and j < n and k < p:
         sx = abs(d_x[i]-origin[0]) - xl/2
@@ -168,7 +209,7 @@ def rect(x,y,z,xl,yl,zl,origin = [0,0,0]):
 
 @cuda.jit
 def sphereKernel(d_u, d_x, d_y, d_z, rad):
-    i,j, k = cuda.grid(3)
+    i,j,k = cuda.grid(3)
     m,n,p = d_u.shape
     if i < m and j < n and k < p:
         d_u[i,j, k] = math.sqrt(d_x[i]**2+d_y[j]**2+d_z[k]**2)-rad

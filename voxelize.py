@@ -7,7 +7,7 @@ TPB = 8
 
 # From https://github.com/cpederkoff/stl-to-voxel
 
-def voxelize(inputFilePath, resolution):
+def voxelize(inputFilePath, resolution,buffer):
     mesh = list(read_stl_verticies(inputFilePath))
     modelSize = np.array([0,0,0])
     pointList = list(map(list,sum(mesh,())))
@@ -22,7 +22,7 @@ def voxelize(inputFilePath, resolution):
         prepixel = np.zeros((bounding_box[0], bounding_box[1]), dtype=bool)
         linesToVoxels(lines, prepixel)
         vol[height] = prepixel
-    vol = padVoxelArray(vol,2)
+    vol = padVoxelArray(vol,buffer)
     print("Voxelize complete!")
     return toFRep(vol), modelSize
 
