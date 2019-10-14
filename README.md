@@ -41,7 +41,3 @@ This means that the resolution is off.  Often, it means that the input value mak
 #### My file is taking a while to process
 
 There are several things that can be done to speed up the software.  The fastest way is to decrease the resolution.  Another way to speed things up is to lower the triangle count of the input model.  I recommend going into MeshMixer with your input model, going to Filters > Remeshing, Simplification and Reconstruction > Simplification: Quadratic Edge Collapse Decimation, checking the 'Preserve Boundary of Mesh' box, and reducing the model to 50% of the initial triangle count (type 0.5 into the 'Percentage Reduction' text box).  For many models, there are many more triangles than are needed, so they can be simplified significantly with minimal loss of quality.
-
-#### In the plots, my model is pushed up against the side, leaving a lot of blank space
-
-This is a known issue that is currently being worked on to reduce wasted computation time.  As an intermediate work-around, the input model can be re-oriented to best fill the cube.  Try loading the STL into your slicer and orienting it along the X-Y-Z axes to have the smallest bounding box, with the longest dimension aligned with the vertical axis.
