@@ -2,6 +2,8 @@
 
 The Voronizer is a python script written to generate support structures and infill structures for 3D models.  The structures are based on Voronoi foam, and allow the user a lot of control over the resulting model.
 
+This code (and the algorithms within) are described by the paper freely available online: http://utw10945.utweb.utexas.edu/sites/default/files/2019/153%20Using%20Parallel%20Computing%20Techniques%20to%20Algorithmic.pdf
+
 ## Setting Up Your Machine
 
 This script uses CUDA, a parallel processing library.  It requires that you have an Nvidia graphics card installed and that your computer is set up with the CUDA Toolkit.  Instructions are available here: https://developer.nvidia.com/how-to-cuda-python
