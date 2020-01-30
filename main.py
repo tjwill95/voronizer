@@ -53,7 +53,7 @@ def main():
             else: #Sphere
                 origShape = f.sphere(x0,y0,z0,40)
     else:
-        print("Provide either a file name or a desired primative.")
+        print("Provide either a file name or a desired primitive.")
         return
     
     print("Initial Bounding Box Dimensions: "+str(origShape.shape))
