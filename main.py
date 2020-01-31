@@ -34,13 +34,18 @@ def main():
         scale[0] = objectBox[0]/(gridResX-BUFFER*2)
         scale[1] = max(objectBox[1:])/(gridResY-BUFFER*2)
         scale[2] = scale[1]
+        
     elif u.PRIMITIVE == True:
         shortName = u.PRIMITIVE_TYPE
         if u.PRIMITIVE_TYPE == "Heart":
-            x0 = np.linspace(0.5,3.5,u.RESOLUTION)
-            y0 = np.linspace(0.5,3.5,u.RESOLUTION)
-            z0 = np.linspace(0.5,3.5,u.RESOLUTION)
-            origShape = f.heart(x0,y0,z0,2,2,2)
+            x0 = np.linspace(-1.5,1.5,u.RESOLUTION)
+            y0, z0 = x0, x0
+            origShape = f.heart(x0,y0,z0,0,0,0)
+        elif u.PRIMITIVE_TYPE == "Egg":
+            x0 = np.linspace(-5,5,u.RESOLUTION)
+            y0, z0 = x0, x0
+            origShape = f.egg(x0,y0,z0,0,0,0)
+            #eggknowledgement to Molly Carton for this feature.
         else:
             x0 = np.linspace(-50,50,u.RESOLUTION)
             y0, z0 = x0, x0
@@ -50,14 +55,17 @@ def main():
                 origShape = f.union(f.sphere(x0,y0,z0,40),f.cylinderY(x0,y0,z0,-40,0,40))
             elif u.PRIMITIVE_TYPE == "Cylinder":
                 origShape = f.cylinderX(x0,y0,z0,-40,40,40)
-            else: #Sphere
+            elif u.PRIMITIVE_TYPE == "Sphere":
                 origShape = f.sphere(x0,y0,z0,40)
+            else:
+                print("Selected primitive type has not yet been implemented.")
     else:
         print("Provide either a file name or a desired primitive.")
         return
-    
+
     print("Initial Bounding Box Dimensions: "+str(origShape.shape))
     origShape = SDF3D(f.condense(origShape,BUFFER))
+    #origShape = f.shell(origShape,4)
     print("Condensed Bounding Box Dimensions: "+str(origShape.shape))
     
     if u.SUPPORT:
@@ -113,7 +121,7 @@ def main():
             print("Generating Supports...")
             generateMesh(supportVoronoi,scale,modelName=fn+"Support")
         else:
-            generateMesh(complete,scale,modelName=fn)
+            generateMesh(f.smooth(complete),scale,modelName=fn)
         if u.INVERSE and u.MODEL:
             print("Generating Inverse...")
             inv=f.subtract(objectVoronoi,origShape)

@@ -4,6 +4,38 @@ import math
 TPB = 8
 
 @cuda.jit
+def smoothKernel(d_u, d_v, buffer):
+    i,j,k = cuda.grid(3)
+    count = 0
+    dims = d_u.shape
+    if i>=dims[0]-buffer or j>=dims[1]-buffer or k>=dims[2]-buffer or i<buffer or j<buffer or k<buffer:
+        return
+    else:
+        d_v[i,j,k]=0
+        for index in range(27):
+            checkPos = (i+((index//9)%3-1),j+((index//3)%3-1),k+(index%3-1))
+            if checkPos[0]<dims[0] and checkPos[1]<dims[1] and checkPos[2]<dims[2] and min(checkPos)>=0:
+                d_v[i,j,k]+=d_u[checkPos]
+                count+=1
+        d_v[i,j,k] = d_v[i,j,k]/count
+
+def smooth(u,iteration = 1,buffer=0):
+    #u = input voxel model
+    #iteration = number of times to run the algorithm
+    #buffer = Layers of voxels on the boundaries of the box that are left untouched
+    #Outputs a new matrix with each value set to the average of its neighbor's values.
+    TPBX, TPBY, TPBZ = TPB, TPB, TPB
+    dims = u.shape
+    d_u = cuda.to_device(u)
+    d_v = cuda.to_device(u)
+    gridDims = (dims[0]+TPBX-1)//TPBX, (dims[1]+TPBY-1)//TPBY, (dims[2]+TPBZ-1)//TPBZ
+    blockDims = TPBX, TPBY, TPBZ
+    for var in range(iteration):
+        smoothKernel[gridDims, blockDims](d_u, d_v,buffer)
+        d_u,d_v = d_v,d_u
+    return d_u.copy_to_host()
+
+@cuda.jit
 def boolKernel(d_u,d_v):
     i,j,k = cuda.grid(3)
     dims = d_u.shape
@@ -175,6 +207,34 @@ def heart(x,y,z,cx,cy,cz):
     gridDims = (m+TPBX-1)//TPBX, (n+TPBY-1)//TPBY, (n+TPBZ-1)//TPBZ
     blockDims = TPBX, TPBY, TPBZ
     heartKernel[gridDims, blockDims](d_u, d_x, d_y, d_z,cx,cy,cz)
+    return d_u.copy_to_host()
+
+@cuda.jit
+def eggKernel(d_u, d_x, d_y, d_z,cx,cy,cz):
+    i,j,k = cuda.grid(3)
+    m,n,p = d_u.shape
+    if i < m and j < n and k < p:
+        x = d_x[i]-cx
+        y = d_y[j]-cy
+        z = d_z[k]-cz
+        d_u[i,j,k] = 9*x**2+16*(y**2+z**2)+2*x*(y**2+z**2)+(y**2+z**2)-144
+        
+def egg(x,y,z,cx,cy,cz):
+    #x,y,z = coordinate domain that we want the shape to live in, vectors
+    #cx,cy,cz = coordinates of the center of the egg shape.
+    #Outputs a 3D matrix with negative values showing the inside of our shape, 
+    #positive values showing the outside, and 0s to show the surfaces.
+    TPBX, TPBY, TPBZ = TPB, TPB, TPB
+    m = x.shape[0]
+    n = y.shape[0]
+    p = z.shape[0]
+    d_x = cuda.to_device(x)
+    d_y = cuda.to_device(y)
+    d_z = cuda.to_device(z)
+    d_u = cuda.device_array(shape = [m, n, p], dtype = np.float32)
+    gridDims = (m+TPBX-1)//TPBX, (n+TPBY-1)//TPBY, (n+TPBZ-1)//TPBZ
+    blockDims = TPBX, TPBY, TPBZ
+    eggKernel[gridDims, blockDims](d_u, d_x, d_y, d_z,cx,cy,cz)
     return d_u.copy_to_host()
 
 @cuda.jit
