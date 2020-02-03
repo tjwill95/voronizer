@@ -19,6 +19,8 @@ def main():
     except: FILE_NAME = ""
     try:    os.mkdir(os.path.join(os.path.dirname(__file__),'Output')) #Creates an output folder if there isn't one yet
     except: pass
+    try:    PRIMITIVE_TYPE = u.PRIMITIVE_TYPE #Checks to see if a primitive type has been set
+    except: PRIMITIVE_TYPE = ""
     modelImport = False
     scale = [1,1,1]
     if not u.MODEL and not u.SUPPORT:
@@ -27,21 +29,23 @@ def main():
     if FILE_NAME != "":
         shortName = FILE_NAME[:-4]
         modelImport = True
-        filepath = os.path.join(os.path.dirname(__file__), 'Input',FILE_NAME)
+        try:    filepath = os.path.join(os.path.dirname(__file__), 'Input',FILE_NAME)
+        except: 
+            print("Input file not found.") 
+            return
         res = u.RESOLUTION-BUFFER*2
         origShape, objectBox = voxelize(filepath, res, BUFFER)
         gridResX, gridResY, gridResZ = origShape.shape
         scale[0] = objectBox[0]/(gridResX-BUFFER*2)
         scale[1] = max(objectBox[1:])/(gridResY-BUFFER*2)
         scale[2] = scale[1]
-        
-    elif u.PRIMITIVE == True:
-        shortName = u.PRIMITIVE_TYPE
-        if u.PRIMITIVE_TYPE == "Heart":
+    elif PRIMITIVE_TYPE != "":
+        shortName = PRIMITIVE_TYPE
+        if PRIMITIVE_TYPE == "Heart":
             x0 = np.linspace(-1.5,1.5,u.RESOLUTION)
             y0, z0 = x0, x0
             origShape = f.heart(x0,y0,z0,0,0,0)
-        elif u.PRIMITIVE_TYPE == "Egg":
+        elif PRIMITIVE_TYPE == "Egg":
             x0 = np.linspace(-5,5,u.RESOLUTION)
             y0, z0 = x0, x0
             origShape = f.egg(x0,y0,z0,0,0,0)
@@ -49,13 +53,13 @@ def main():
         else:
             x0 = np.linspace(-50,50,u.RESOLUTION)
             y0, z0 = x0, x0
-            if u.PRIMITIVE_TYPE == "Cube":
+            if PRIMITIVE_TYPE == "Cube":
                 origShape = f.rect(x0,y0,z0,80,80,80)
-            elif u.PRIMITIVE_TYPE == "Silo":
+            elif PRIMITIVE_TYPE == "Silo":
                 origShape = f.union(f.sphere(x0,y0,z0,40),f.cylinderY(x0,y0,z0,-40,0,40))
-            elif u.PRIMITIVE_TYPE == "Cylinder":
+            elif PRIMITIVE_TYPE == "Cylinder":
                 origShape = f.cylinderX(x0,y0,z0,-40,40,40)
-            elif u.PRIMITIVE_TYPE == "Sphere":
+            elif PRIMITIVE_TYPE == "Sphere":
                 origShape = f.sphere(x0,y0,z0,40)
             else:
                 print("Selected primitive type has not yet been implemented.")
@@ -65,7 +69,7 @@ def main():
 
     print("Initial Bounding Box Dimensions: "+str(origShape.shape))
     origShape = SDF3D(f.condense(origShape,BUFFER))
-    #origShape = f.shell(origShape,4)
+    if u.NET: origShape = f.shell(origShape,u.NET_THICKNESS)
     print("Condensed Bounding Box Dimensions: "+str(origShape.shape))
     
     if u.SUPPORT:
