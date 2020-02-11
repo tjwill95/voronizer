@@ -148,6 +148,10 @@ def condenseKernel(d_u,d_uCondensed,buffer,minX,minY,minZ):
         d_uCondensed[i,j,k] = d_u[i+minX-buffer,j+minY-buffer,k+minZ-buffer]
     
 def condense(u,buffer):
+    #u = input voxel model
+    #buffer = number of layers of voxels around the boundaries that are left empty
+    #Outputs a new matrix that is fitted to the input voxel model, removing layers
+    #that don't store geometry.
     m, n, p = u.shape
     TPBX, TPBY, TPBZ = TPB, TPB, TPB
     minX, maxX, minY, maxY, minZ, maxZ = -1,-1,-1,-1,-1,-1
