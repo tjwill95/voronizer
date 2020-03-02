@@ -1,5 +1,7 @@
 from numba import cuda
-TPB = 8
+import userInput as u
+try: TPB = u.TPB 
+except: TPB = 8
 
 @cuda.reduce
 def sum_reduce(a, b):

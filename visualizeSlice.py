@@ -3,8 +3,9 @@ import os #Just used to set up file directory
 import numpy as np
 from numba import cuda
 from PIL import Image
-
-TPB = 8
+import userInput as u
+try: TPB = u.TPB 
+except: TPB = 8
 
 def slicePlot(u,sliceLocation,titlestring='Plot',save=False,axis = "x"):
     #Plots a slice of matrix u cut at sliceLocation, with the negative values (voxels inside the object) set to teal.

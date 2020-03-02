@@ -3,8 +3,9 @@ import Frep as f
 from SDF3D import SDF3D, jumpFlood
 from numba import cuda
 import numpy as np
-
-TPB = 8
+import userInput as u
+try: TPB = u.TPB 
+except: TPB = 8
 
 def voronize(origObject, seedPoints, cellThickness, shellThickness, scale,
              name = "", sliceLocation = 0, sliceAxis = "X", order = 2):
@@ -24,7 +25,8 @@ def voronize(origObject, seedPoints, cellThickness, shellThickness, scale,
     seedPoints = jumpFlood(seedPoints,order)
     if name !="":
         contourPlot(seedPoints[:,:,:,3],sliceLocation,titlestring="SDF of the Points for "+name,axis = sliceAxis)
-    voronoi = SDF3D(wallFinder(seedPoints))
+    voronoi = wallFinder(seedPoints)
+    voronoi = SDF3D(voronoi)
     if name !="":
         slicePlot(voronoi,sliceLocation,titlestring="Voronoi Structure for "+name,axis = sliceAxis)
     wallThickness=cellThickness/2-1

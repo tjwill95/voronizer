@@ -1,7 +1,9 @@
 from numba import cuda
 import numpy as np
 import math
-TPB = 8
+import userInput as u
+try: TPB = u.TPB 
+except: TPB = 8
 
 @cuda.jit
 def smoothKernel(d_u, d_v, buffer):
@@ -175,9 +177,9 @@ def condense(u,buffer):
     while maxZ<0:
         if np.amin(u[:,:,p-k])<0:   maxZ = p-k
         else:                       k += 1
-    xSize = 2 * buffer + maxX - minX
-    ySize = 2 * buffer + maxY - minY
-    zSize = 2 * buffer + maxZ - minZ
+    xSize = (np.ceil((2*buffer+maxX-minX)/TPB)*TPB).astype(int)
+    ySize = (np.ceil((2*buffer+maxY-minY)/TPB)*TPB).astype(int)
+    zSize = (np.ceil((2*buffer+maxZ-minZ)/TPB)*TPB).astype(int)
     d_u = cuda.to_device(u)
     d_uCondensed = cuda.device_array(shape = [xSize, ySize, zSize], dtype = np.float32)
     gridDims = (xSize+TPBX-1)//TPBX, (ySize+TPBY-1)//TPBY, (zSize+TPBZ-1)//TPBZ

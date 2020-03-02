@@ -11,8 +11,6 @@ from analysis import findVol
 from visualizeSlice import slicePlot, contourPlot, generateImageStack
 from voxelize import voxelize
 
-BUFFER = 2
-
 def main():
     start = time.time()
     try:    FILE_NAME = u.FILE_NAME
@@ -33,11 +31,11 @@ def main():
         except: 
             print("Input file not found.") 
             return
-        res = u.RESOLUTION-BUFFER*2
-        origShape, objectBox = voxelize(filepath, res, BUFFER)
+        res = u.RESOLUTION-u.BUFFER*2
+        origShape, objectBox = voxelize(filepath, res, u.BUFFER)
         gridResX, gridResY, gridResZ = origShape.shape
-        scale[0] = objectBox[0]/(gridResX-BUFFER*2)
-        scale[1] = max(objectBox[1:])/(gridResY-BUFFER*2)
+        scale[0] = objectBox[0]/(gridResX-u.BUFFER*2)
+        scale[1] = max(objectBox[1:])/(gridResY-u.BUFFER*2)
         scale[2] = scale[1]
     elif PRIMITIVE_TYPE != "":
         shortName = PRIMITIVE_TYPE
@@ -68,7 +66,7 @@ def main():
         return
 
     print("Initial Bounding Box Dimensions: "+str(origShape.shape))
-    origShape = SDF3D(f.condense(origShape,BUFFER))
+    origShape = SDF3D(f.condense(origShape,u.BUFFER))
     if u.NET: origShape = f.shell(origShape,u.NET_THICKNESS)
     print("Condensed Bounding Box Dimensions: "+str(origShape.shape))
     

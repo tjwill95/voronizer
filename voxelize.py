@@ -3,7 +3,9 @@ import math
 import numpy as np
 from struct import unpack
 from operator import itemgetter
-TPB = 8
+import userInput as u
+try: TPB = u.TPB 
+except: TPB = 8
 
 # From https://github.com/cpederkoff/stl-to-voxel
 
@@ -22,6 +24,8 @@ def voxelize(inputFilePath, resolution,buffer):
         prepixel = np.zeros((bounding_box[0], bounding_box[1]), dtype=bool)
         linesToVoxels(lines, prepixel)
         vol[height] = prepixel
+        if height%50<1:
+            print("On layer "+str(height)+" of "+str(bounding_box[2]))
     vol = padVoxelArray(vol,buffer)
     print("Voxelize complete!")
     return toFRep(vol), modelSize
@@ -141,7 +145,27 @@ def read_stl_verticies(fname):
         head, p, n, v1, v2, v3 = BinarySTL(fname)
         for i, j, k in zip(v1, v2, v3):
             yield (tuple(i), tuple(j), tuple(k))
+"""
+@cuda.jit
+def padVoxelArrayKernel(d_u,d_v,padding):
+    i,j,k = cuda.grid(3)
+    dims = d_u.shape
+    if i >= dims[0] or j >= dims[1] or k >= dims[2]:
+        return
+    d_v[i+padding,j+padding,k+padding] = d_u[i,j,k]
 
+def padVoxelArray(voxels,padding):
+    d_u = cuda.to_device(u)
+    dims = voxels.shape
+    new_shape = (dims[0]+2*padding,dims[1]+2*padding,dims[2]+2*padding)
+    v = np.zeros(new_shape, dtype=np.float32)
+    d_v = cuda.to_device(v)
+    gridSize = [(dims[0]+TPB-1)//TPB, (dims[1]+TPB-1)//TPB,(dims[2]+TPB-1)//TPB]
+    blockSize = [TPB, TPB, TPB]
+    padVoxelArrayKernel[gridSize, blockSize](d_u,d_v,padding)
+    return d_v.copy_to_host()
+
+"""
 def padVoxelArray(voxels,padding):
     shape = voxels.shape
     new_shape = (shape[0]+2*padding,shape[1]+2*padding,shape[2]+2*padding)

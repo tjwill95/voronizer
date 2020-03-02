@@ -4,7 +4,6 @@ import matplotlib.pyplot as plt
 from skimage import measure
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
-
 # Create 3d contourplot (and surface tesselation) based on 3d array fvals 
 # sampled on grid with coords determined by xvals, yvals, and zvals
 # Note that tesselator requires inputs corresponding to grid spacings

@@ -1,7 +1,9 @@
 from numba import cuda
 from Frep import union
 import numpy as np
-TPB = 8
+import userInput as u
+try: TPB = u.TPB 
+except: TPB = 8
 
 @cuda.reduce
 def sum_reduce(a, b):
@@ -30,7 +32,7 @@ def genRandPoints(u,threshold):
     gridDims = (x+TPBX-1)//TPBX, (y+TPBY-1)//TPBY, (z+TPBZ-1)//TPBZ
     blockDims = TPBX, TPBY, TPBZ
     genRandPointsKernel[gridDims, blockDims](d_u, d_r, d_v, threshold)
-    print(x*y*z-sum_reduce(cuda.to_device(d_v.copy_to_host().flatten())),"Points") #Prints how many random points were generated.
+    print(np.round(x*y*z-sum_reduce(cuda.to_device(d_v.copy_to_host().flatten()))),"Points") #Prints how many random points were generated.
     return d_v.copy_to_host()
 
 def explode(u):
