@@ -28,7 +28,6 @@ FILE_NAME = "3DBenchy_up.stl"
 #FILE_NAME = "3DBenchy.stl"
 #FILE_NAME = "bust_low.stl"
 #FILE_NAME = "wavySurface.stl"
-#FILE_NAME = "luckyCat.stl"
 
 #If you would prefer a simple geometric object, uncomment the one you want and
 #make sure that all FILE_NAME options are commented out.
