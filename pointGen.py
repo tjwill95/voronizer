@@ -32,7 +32,7 @@ def genRandPoints(u,threshold):
     gridDims = (x+TPBX-1)//TPBX, (y+TPBY-1)//TPBY, (z+TPBZ-1)//TPBZ
     blockDims = TPBX, TPBY, TPBZ
     genRandPointsKernel[gridDims, blockDims](d_u, d_r, d_v, threshold)
-    print(np.round(x*y*z-sum_reduce(cuda.to_device(d_v.copy_to_host().flatten()))),"Points") #Prints how many random points were generated.
+    print(str(int((x*y*z-sum_reduce(cuda.to_device(d_v.copy_to_host().flatten())))+0.5))+" Points") #Prints how many random points were generated.
     return d_v.copy_to_host()
 
 def explode(u):

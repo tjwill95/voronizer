@@ -13,10 +13,10 @@ from voxelize import voxelize
 
 def main():
     start = time.time()
-    try:    FILE_NAME = u.FILE_NAME
-    except: FILE_NAME = ""
     try:    os.mkdir(os.path.join(os.path.dirname(__file__),'Output')) #Creates an output folder if there isn't one yet
     except: pass
+    try:    FILE_NAME = u.FILE_NAME
+    except: FILE_NAME = ""
     try:    PRIMITIVE_TYPE = u.PRIMITIVE_TYPE #Checks to see if a primitive type has been set
     except: PRIMITIVE_TYPE = ""
     modelImport = False
@@ -87,12 +87,15 @@ def main():
         findVol(supportVoronoi,scale,u.MAT_DENSITY,"Support")
     
     if u.MODEL:
-        objectPts = genRandPoints(origShape,u.MODEL_THRESH)
+        if u.AESTHETIC:
+            objectPts = genRandPoints(f.shell(origShape,5),u.MODEL_THRESH)
+        else:
+            objectPts = genRandPoints(origShape,u.MODEL_THRESH)
         print("Points Generated!")
         objectVoronoi = voronize(origShape, objectPts, u.MODEL_CELL, u.MODEL_SHELL, scale, name = "Object")
         findVol(objectVoronoi,scale,u.MAT_DENSITY,"Object") #in mm^3
         if u.AESTHETIC:
-            objectVoronoi = f.union(objectVoronoi,f.thicken(origShape,-8))
+            objectVoronoi = f.union(objectVoronoi,f.thicken(origShape,-5))
     shortName = shortName+"_Voronoi"
     if u.SUPPORT and u.MODEL:
         complete = f.union(objectVoronoi,supportVoronoi)
@@ -119,14 +122,22 @@ def main():
             fn = input("What would you like the file to be called?")
         print("Generating Model...")
         if u.SEPARATE_SUPPORTS and u.SUPPORT and u.MODEL:
+            if u.SMOOTH:
+                objectVoronoi = f.smooth(objectVoronoi)
             generateMesh(objectVoronoi,scale,modelName=fn)
             print("Generating Supports...")
+            if u.SMOOTH:
+                supportVoronoi = f.smooth(supportVoronoi)
             generateMesh(supportVoronoi,scale,modelName=fn+"Support")
         else:
-            generateMesh(f.smooth(complete),scale,modelName=fn)
+            if u.SMOOTH:
+                complete = f.smooth(complete)
+            generateMesh(complete,scale,modelName=fn)
         if u.INVERSE and u.MODEL:
             print("Generating Inverse...")
             inv=f.subtract(objectVoronoi,origShape)
+            if u.SMOOTH:
+                inv = f.smooth(inv)
             print("Generating Mesh...")
             generateMesh(inv,scale,modelName=fn+"Inv")
 
